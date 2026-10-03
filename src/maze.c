@@ -2,15 +2,16 @@
  * src/maze.c — FinalBuildSystems seeded maze generator. Implements
  * include/fbs/maze.h.
  *
- * Original work. Nothing is ported, wrapped or vendored: per
- * docs/decisions/maze.md §4 and §9 the owned Fab plugin ("Maze Generator",
- * LowkeyMe, MIT upstream at fa3f913c64309f350e3f174a2f34e2ac03b0c27c, notice
- * vendored at third_party/lowkeyme/) is a *specification input only*. The
+ * Original work. Nothing is ported, wrapped or vendored: the owned Fab plugin
+ * ("Maze Generator", LowkeyMe, MIT upstream at
+ * fa3f913c64309f350e3f174a2f34e2ac03b0c27c, notice vendored at
+ * third_party/lowkeyme/) is a *specification input only*; this file owes it
+ * the framing (direction-bit grid, one seeded stream), not code. The
  * algorithms are textbook prior art (Jamis Buck's 2010-2011 series, linked by
  * the upstream README itself, and Wikipedia's "Maze generation algorithm");
  * the PRNG is public domain (Blackman & Vigna's xoshiro128** 1.1, Vigna's
- * splitmix64). The source defects M-1 .. M-26 recorded in
- * docs/sources/maze-inventory.md §9 are fixed structurally here, not copied.
+ * splitmix64). The plugin's defects, labelled M-1 .. M-26 in the comments
+ * below, are fixed structurally here, not copied.
  *
  * C99. Standard library only (<stdlib.h> for the default allocator,
  * <string.h> for memset/memcpy). No libm, no floating point anywhere, no
@@ -38,8 +39,7 @@
  * stream; the version is pinned in the header, here, and by the golden vectors
  * in tests/fixtures/maze/rng-vectors.txt.
  *
- * fbs_maze_rng_below uses the PCG/Lemire threshold rejection loop specified in
- * docs/decisions/maze.md §3.9 verbatim:
+ * fbs_maze_rng_below uses the PCG/Lemire threshold rejection loop, verbatim:
  *
  *     threshold = (0u - bound) % bound;    // == 2^32 mod bound
  *     do { x = next(); } while (x < threshold);
@@ -47,7 +47,7 @@
  *
  * i.e. the *low* 2^32 mod bound outputs are rejected. This is unbiased, has no
  * floating point, and terminates with probability 1. `bound == 0` returns 0 and
- * consumes nothing (documented in the header; mazelib SIGFPEs here, §3.1).
+ * consumes nothing (documented in the header; mazelib's `x % 0` SIGFPEs here).
  * `bound == 1` has threshold 0, so it accepts immediately and *does* consume
  * one draw — only 0 short-circuits.
  *
@@ -86,13 +86,13 @@
  *   called with newest_percent 100, 0 and params.newest_percent respectively.
  *   That is what makes the header's "newest_percent 100 == Backtracker, 0 ==
  *   Prim" a structural identity instead of a coincidence to be maintained by
- *   hand (witness MT-5), and it is mazelib's framing, decision §3.1: always
+ *   hand (witness MT-5), and it is mazelib's growing-tree framing: always
  *   choosing the newest active cell *is* the recursive backtracker; choosing
  *   uniformly at random *is* the randomised Prim texture ("many short dead
  *   ends"). The selection coin is drawn on every iteration in all three cases,
  *   so the three share one draw sequence exactly.
  *
- * SCHEMA. docs/decisions/maze.md §4.3, magic "FBSM", version 1, rng_id 1,
+ * SCHEMA. Magic "FBSM", version 1, rng_id 1,
  * 40 + width*height bytes, every field little-endian and written one at a
  * time. deserialize validates magic, version, flags, pad, sizes against both
  * `len` and the config, the algorithm enum, the three percents, rng_id, every
@@ -133,7 +133,7 @@ static void maze_default_free(void *user, void *ptr) {
 }
 
 /* ------------------------------------------------------------------------- */
-/* PRNG — public ABI (decision §3.9, §4.1.1, §4.1.2)                          */
+/* PRNG: public ABI, because the maze bytes are defined by it                */
 /* ------------------------------------------------------------------------- */
 
 static uint32_t maze_rotl(uint32_t x, unsigned k) {
@@ -278,8 +278,9 @@ static unsigned maze_popcount4(uint8_t c) {
   return (unsigned)((c & 1u) + ((c >> 1) & 1u) + ((c >> 2) & 1u) + ((c >> 3) & 1u));
 }
 
-/* Fisher-Yates, the forward form named in decision §5 M-3: swap a[i] with
- * a[i + rng_below(n - i)] for i = 0 .. n-2. n-1 is skipped because
+/* Fisher-Yates, the forward form (the M-3 fix for the plugin's biased naive
+ * shuffle): swap a[i] with a[i + rng_below(n - i)] for i = 0 .. n-2. n-1 is
+ * skipped because
  * rng_below(1) is a no-op that would still burn a draw. */
 static void maze_shuffle(fbs_maze_rng *r, uint32_t *a, uint32_t n) {
   uint32_t i;
@@ -494,15 +495,16 @@ void fbs_maze_destroy(fbs_maze *m) {
 /* ------------------------------------------------------------------------- */
 
 /* Growing tree — BACKTRACKER (newest 100), PRIM (newest 0) and GROWING_TREE
- * (newest = params.newest_percent) are this one routine, decision §4.1 and
- * §3.1. Draw order per iteration: the selection coin rng_below(100), then
- * rng_below(len) when the coin picked "random", then rng_below(candidates)
- * when the chosen cell still has an unvisited neighbour. The coin is drawn in
- * every case, including the two extremes, so all three algorithms consume one
- * identical stream. The start cell is one rng_below(width*height) draw.
- * Removal from the active list is swap-with-last, which for "newest" is a
- * plain pop, which is exactly the explicit-stack recursive backtracker (M-8:
- * no recursion, and the list is sized from the config). */
+ * (newest = params.newest_percent) are this one routine, following mazelib's
+ * growing-tree framing. Draw order per iteration: the selection coin
+ * rng_below(100), then rng_below(len) when the coin picked "random", then
+ * rng_below(candidates) when the chosen cell still has an unvisited
+ * neighbour. The coin is drawn in every case, including the two extremes, so
+ * all three algorithms consume one identical stream. The start cell is one
+ * rng_below(width*height) draw. Removal from the active list is
+ * swap-with-last, which for "newest" is a plain pop, which is exactly the
+ * explicit-stack recursive backtracker (M-8: no recursion, and the list is
+ * sized from the config). */
 static void maze_growing_tree(fbs_maze *m, uint32_t newest_percent) {
   uint32_t w = m->width, h = m->height;
   uint32_t n = w * h;
@@ -599,7 +601,7 @@ static void maze_kruskal(fbs_maze *m) {
 }
 
 /* Sidewinder — Buck's rule with the east bias exposed as a parameter (the
- * upstream coin is hard-coded 50/50, inventory §4.2). Row 0 is one corridor:
+ * upstream coin is hard-coded 50/50). Row 0 is one corridor:
  * the run can only be closed by the east wall of the grid, and no draw is made
  * for it. In rows below, a draw is made at every column except the last
  * (where the run is forced closed); closing a run costs one more draw to pick
@@ -914,14 +916,14 @@ static void maze_division(fbs_maze *m) {
   }
 }
 
-/* Braiding (decision §4.1.8) — cells are visited in ascending index. A cell
- * that is a dead end *at that moment* draws rng_below(100); if the draw is
- * below braid_percent, one of its closed interior walls is opened, chosen with
- * rng_below(count) over the closed walls in N, E, S, W order. Degrees only
- * ever rise, so a dead end that a previous opening already relieved draws
- * nothing. A dead end with no closed interior wall (the two ends of a 1xN
- * corridor) draws the coin and then stays a dead end: there is nothing to
- * open. */
+/* Braiding, applied deterministically: cells are visited in ascending index.
+ * A cell that is a dead end *at that moment* draws rng_below(100); if the
+ * draw is below braid_percent, one of its closed interior walls is opened,
+ * chosen with rng_below(count) over the closed walls in N, E, S, W order.
+ * Degrees only ever rise, so a dead end that a previous opening already
+ * relieved draws nothing. A dead end with no closed interior wall (the two
+ * ends of a 1xN corridor) draws the coin and then stays a dead end: there is
+ * nothing to open. */
 static void maze_braid(fbs_maze *m) {
   uint32_t w = m->width, h = m->height;
   uint32_t n = w * h, i;
@@ -1299,7 +1301,7 @@ fbs_maze_status fbs_maze_render(const fbs_maze *m, uint8_t *buf, size_t cap, uin
 }
 
 /* ------------------------------------------------------------------------- */
-/* Serialization (docs/decisions/maze.md §4.3)                               */
+/* Serialization (schema "FBSM" v1, see SCHEMA at the top of this file)      */
 /* ------------------------------------------------------------------------- */
 
 static void maze_put_u16(unsigned char *p, unsigned v) {

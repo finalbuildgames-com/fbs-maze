@@ -1,4 +1,4 @@
-# fbs_maze PRNG golden vectors (docs/decisions/maze.md §4.1, MT-4d)
+# fbs_maze PRNG golden vectors (MT-4d)
 # xoshiro128** 1.1, state seeded by splitmix64 over the 64-bit seed:
 #   w0 = splitmix64(); s[0] = low32(w0); s[1] = high32(w0);
 #   w1 = splitmix64(); s[2] = low32(w1); s[3] = high32(w1);

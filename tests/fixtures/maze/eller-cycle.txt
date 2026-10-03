@@ -1,11 +1,10 @@
 Upstream Eller cycle — recorded so the reason for the union-find is never lost.
 
-Source: docs/sources/maze-inventory.md §4.3 and §9 M-1; decision
-docs/decisions/maze.md §5 M-1. Not reproducible by this test binary on purpose:
+Defect M-1 of the upstream plugin. Not reproducible by this test binary on purpose:
 fbs_maze never had the defect, so there is nothing here to run.
 
-The instance, measured by the maze-research worker against a faithful C
-re-implementation of Eller.cpp plus FRandomStream:
+The instance, measured against a faithful C re-implementation of Eller.cpp
+plus FRandomStream:
 
   algorithm : Eller (LowkeyMe UE5-MazeGenerator-Plugin, Eller.cpp)
   seed      : 42
@@ -22,8 +21,8 @@ between them occupies non-contiguous columns in the next row, so the last-row
 join loop later reconnects two regions that were already connected through the
 rows above. Census over sizes 5-41 x 500 seeds: 4,474 of 9,500 mazes contain at
 least one cycle, 8,169 surplus edges in total, worst case 9 in one maze; the
-failure rate is 1% at MazeSize 7, 46% at 21 and 94% at 41, while README.md:94
-claims "Generated mazes are perfect".
+failure rate is 1% at MazeSize 7, 46% at 21 and 94% at 41, while the plugin's
+README.md:94 claims "Generated mazes are perfect".
 
 What fbs_maze does instead (src/maze.c, maze_eller): a real union-find over the
 row, so a merge joins whole sets and a passage is never carved between two cells

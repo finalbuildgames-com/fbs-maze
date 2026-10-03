@@ -4,34 +4,34 @@
  * Self-contained: no test framework. Exit code = number of failures (clamped
  * to 100 so it survives the 8-bit exit status; the true count is printed).
  *
- * Covers docs/decisions/maze.md §6: MT-1 .. MT-14 with the witnesses stated
- * there, plus allocator failure, every error status, every E_TRUNCATED path,
- * NULL/bad-enum validation, 0xA5 output-untouched checks on every entry point,
- * the status-name/version/algorithm-name functions, and golden fixtures under
- * tests/fixtures/maze/.
+ * Covers the module's test plan, MT-1 .. MT-14, with the witnesses described
+ * at each test below, plus allocator failure, every error status, every
+ * E_TRUNCATED path, NULL/bad-enum validation, 0xA5 output-untouched checks on
+ * every entry point, the status-name/version/algorithm-name functions, and
+ * golden fixtures under tests/fixtures/maze/.
  *
- * Independence. Where §6 asks for a second opinion, this file computes it with
- * its own code rather than by calling the module back: it has its own BFS, its
- * own flood fill, its own cycle finder, its own render-grid analysis, and — for
- * MT-9 — its own transcription of Kruskal's draw sequence built on the public
- * PRNG, which pins the module's internal Fisher-Yates.
+ * Independence. Where the plan asks for a second opinion, this file computes
+ * it with its own code rather than by calling the module back: it has its own
+ * BFS, its own flood fill, its own cycle finder, its own render-grid analysis,
+ * and — for MT-9 — its own transcription of Kruskal's draw sequence built on
+ * the public PRNG, which pins the module's internal Fisher-Yates.
  *
  * MT-4's WASM half ("assert the same fixtures from the WASM build") is out of
- * scope for this C binary and is explicitly not part of this milestone
- * (decision §9); the golden files below are the artifact a WASM build would be
- * compared against, byte for byte.
+ * scope for this C binary and is explicitly not part of this milestone; the
+ * golden files below are the artifact a WASM build would be compared against,
+ * byte for byte.
  *
  * MT-13's two-thread half is not run here: the test binary links no thread
  * library and adding one would change the build for every module. The module
- * has no globals and no static mutable state at all (checked in
- * docs/lanes/maze-impl.md with `nm` over libfbs_maze.a: zero symbols in .data
- * or .bss), and the interleaved-objects witness below is the runnable half.
+ * has no globals and no static mutable state at all (checked with `nm` over
+ * libfbs_maze.a: zero symbols in .data or .bss), and the interleaved-objects
+ * witness below is the runnable half.
  *
  *   ./fbs_test_maze                       compare against tests/fixtures/maze/
  *   ./fbs_test_maze --write-fixtures      rewrite those files
  *   ./fbs_test_maze --fixture-dir DIR     look for fixtures under DIR
  *
- * MZ-1 (module review, docs/lanes/power-maze-review.md): test_mt9_rejection_branch
+ * MZ-1 (module review): test_mt9_rejection_branch
  * witnesses the rejection branch of fbs_maze_rng_below with bounds above 2^31,
  * where the threshold is half the range instead of a rounding error. Verified
  * to kill both plausible mutants: `next() % bound` with no rejection at all
@@ -382,7 +382,7 @@ static void test_mt1_connectivity(void) {
 
 /* ------------------------------------------------------------------------- */
 /* MT-2 — perfect mazes are perfect (the flagship witness; upstream Eller     */
-/* fails this on 45-94% of seeds, decision §5 M-1)                           */
+/* fails this on 45-94% of seeds, defect M-1)                                */
 /* ------------------------------------------------------------------------- */
 
 static void test_mt2_perfect(void) {
@@ -580,7 +580,7 @@ static void test_mt4_reproducibility(void) {
     static const uint64_t seeds[2] = {0u, 0xDEADBEEFCAFEF00DULL};
     at += (size_t)sprintf(
         text + at,
-        "# fbs_maze PRNG golden vectors (docs/decisions/maze.md \xc2\xa7""4.1, MT-4d)\n"
+        "# fbs_maze PRNG golden vectors (MT-4d)\n"
         "# xoshiro128** 1.1, state seeded by splitmix64 over the 64-bit seed:\n"
         "#   w0 = splitmix64(); s[0] = low32(w0); s[1] = high32(w0);\n"
         "#   w1 = splitmix64(); s[2] = low32(w1); s[3] = high32(w1);\n"
@@ -623,17 +623,16 @@ static void test_mt4_reproducibility(void) {
     CHECK(fbs_maze_rng_below(NULL, 10u) == 0u);
   }
 
-  /* the recorded upstream Eller failure (decision §6 MT-2, inventory §4.3) */
+  /* the recorded upstream Eller failure (MT-2, defect M-1) */
   {
     static const char note[] =
         "Upstream Eller cycle — recorded so the reason for the union-find is never lost.\n"
         "\n"
-        "Source: docs/sources/maze-inventory.md \xc2\xa7""4.3 and \xc2\xa7""9 M-1; decision\n"
-        "docs/decisions/maze.md \xc2\xa7""5 M-1. Not reproducible by this test binary on purpose:\n"
+        "Defect M-1 of the upstream plugin. Not reproducible by this test binary on purpose:\n"
         "fbs_maze never had the defect, so there is nothing here to run.\n"
         "\n"
-        "The instance, measured by the maze-research worker against a faithful C\n"
-        "re-implementation of Eller.cpp plus FRandomStream:\n"
+        "The instance, measured against a faithful C re-implementation of Eller.cpp\n"
+        "plus FRandomStream:\n"
         "\n"
         "  algorithm : Eller (LowkeyMe UE5-MazeGenerator-Plugin, Eller.cpp)\n"
         "  seed      : 42\n"
@@ -650,8 +649,8 @@ static void test_mt4_reproducibility(void) {
         "join loop later reconnects two regions that were already connected through the\n"
         "rows above. Census over sizes 5-41 x 500 seeds: 4,474 of 9,500 mazes contain at\n"
         "least one cycle, 8,169 surplus edges in total, worst case 9 in one maze; the\n"
-        "failure rate is 1% at MazeSize 7, 46% at 21 and 94% at 41, while README.md:94\n"
-        "claims \"Generated mazes are perfect\".\n"
+        "failure rate is 1% at MazeSize 7, 46% at 21 and 94% at 41, while the plugin's\n"
+        "README.md:94 claims \"Generated mazes are perfect\".\n"
         "\n"
         "What fbs_maze does instead (src/maze.c, maze_eller): a real union-find over the\n"
         "row, so a merge joins whole sets and a passage is never carved between two cells\n"
@@ -1478,13 +1477,13 @@ static void test_mt9_shuffle_fairness(void) {
          trials, chi);
   /* The chi-square is the real criterion: it is the whole 24-bucket statement
      at a stated significance, and the source's naive shuffle scores 59,432 on
-     it (decision §5 M-3). The +/-1% band §6 also names is a per-bucket spot
+     it (M-3). The +/-1% band the test plan also names is a per-bucket spot
      check at ONE fixed seed, not a statistical test: at 2,000,000 samples
      sigma = sqrt(N * (1/24) * (23/24)) = 282.6 and the band is N/24 * 0.01 =
      833.3, i.e. 2.95 sigma, which a fair shuffle would trip about 8% of the
-     time across 24 buckets. It is kept because §6 asks for it and because the
-     seed is fixed, so it is reproducible either way; it is not evidence of
-     unfairness on its own. */
+     time across 24 buckets. It is kept because the plan asks for it and
+     because the seed is fixed, so it is reproducible either way; it is not
+     evidence of unfairness on its own. */
   CHECK(chi < 49.73);
   if (!g_fast) {
     CHECK(all_in_band); /* every permutation within +/-1% (2.95 sigma) of N/24 */
@@ -1728,9 +1727,9 @@ static void test_mt9_kruskal_cross_check(void) {
  * occur, and the run-length histograms of two different middle rows are
  * statistically indistinguishable. The final row is still denser by
  * construction — it joins EVERY remaining pair of distinct sets, which is what
- * makes the maze connected — so §6's "indistinguishable from the other rows"
- * is asserted between middle rows, and the final row is asserted to be denser
- * rather than 20-against-1 different. */
+ * makes the maze connected — so the plan's "indistinguishable from the other
+ * rows" is asserted between middle rows, and the final row is asserted to be
+ * denser rather than 20-against-1 different. */
 static void test_mt10_eller_runs(void) {
   fbs_maze *m = make(24u, 24u);
   uint32_t w = 21u, h = 21u;
@@ -1983,7 +1982,7 @@ static void test_mt11_round_trip(void) {
     blob2 = (unsigned char *)malloc(need);
     CHECK(fbs_maze_serialize(m, blob, need, &len) == FBS_MAZE_OK);
     CHECK(len == need);
-    /* the header says what §4.3 says */
+    /* the header matches the FBSM v1 schema */
     CHECK(blob[0] == 'F' && blob[1] == 'B' && blob[2] == 'S' && blob[3] == 'M');
     CHECK(blob[4] == 1u && blob[5] == 0u);
     CHECK(blob[6] == 0u && blob[7] == 0u);

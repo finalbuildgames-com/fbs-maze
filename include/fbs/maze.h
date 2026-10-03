@@ -9,9 +9,8 @@
  * that the same params give byte-identical cells on every platform including
  * wasm32. One allocation, sized by the config, holds the cells, the algorithm
  * scratch and the solver scratch; nothing is allocated during generation. No
- * globals, no floating point, no libm, no recursion. Decision record:
- * docs/decisions/maze.md section 9. Errors leave outputs untouched except
- * FBS_MAZE_E_TRUNCATED (required length written).
+ * globals, no floating point, no libm, no recursion. Errors leave outputs
+ * untouched except FBS_MAZE_E_TRUNCATED (required length written).
  */
 #ifndef FBS_MAZE_H
 #define FBS_MAZE_H
@@ -67,7 +66,8 @@ typedef struct fbs_maze_rng { uint32_t s[4]; } fbs_maze_rng;
 void     fbs_maze_rng_seed (fbs_maze_rng *r, uint64_t seed);
 uint32_t fbs_maze_rng_next (fbs_maze_rng *r);
 /* Unbiased. bound == 0 returns 0 and consumes nothing (documented, not UB --
-   cf. mazelib's SIGFPE, decision s3.1). Rejection, never modulo alone. */
+   cf. mazelib, whose range draw divides by zero here). Rejection, never
+   modulo alone. */
 uint32_t fbs_maze_rng_below(fbs_maze_rng *r, uint32_t bound);
 
 /* ---- configuration --------------------------------------------------- */
