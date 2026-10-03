@@ -1,0 +1,32 @@
+Upstream Eller cycle — recorded so the reason for the union-find is never lost.
+
+Source: docs/sources/maze-inventory.md §4.3 and §9 M-1; decision
+docs/decisions/maze.md §5 M-1. Not reproducible by this test binary on purpose:
+fbs_maze never had the defect, so there is nothing here to run.
+
+The instance, measured by the maze-research worker against a faithful C
+re-implementation of Eller.cpp plus FRandomStream:
+
+  algorithm : Eller (LowkeyMe UE5-MazeGenerator-Plugin, Eller.cpp)
+  seed      : 42
+  grid      : 6 x 6 direction cells (the plugin's MazeSize 11 x 11)
+  cells     : 36
+  edges     : 36        <- a perfect maze of 36 cells has exactly 35
+  components: 1
+  verdict   : one surplus edge, i.e. exactly one cycle
+
+Cause, in one line: Eller.cpp:38-43 and :95-100 relabel only the contiguous
+run starting at X+1 when two sets merge, where Buck's reference relabels every
+cell of the dissolved set. A set that sent two south passages down with a gap
+between them occupies non-contiguous columns in the next row, so the last-row
+join loop later reconnects two regions that were already connected through the
+rows above. Census over sizes 5-41 x 500 seeds: 4,474 of 9,500 mazes contain at
+least one cycle, 8,169 surplus edges in total, worst case 9 in one maze; the
+failure rate is 1% at MazeSize 7, 46% at 21 and 94% at 41, while README.md:94
+claims "Generated mazes are perfect".
+
+What fbs_maze does instead (src/maze.c, maze_eller): a real union-find over the
+row, so a merge joins whole sets and a passage is never carved between two cells
+that already share one. MT-2 asserts the result — passage_count == w*h - 1 and an
+independent DFS finding no back edge — for all eight algorithms over the whole
+size x seed matrix, and MT-10a asserts the second Eller defect (M-2) is gone too.

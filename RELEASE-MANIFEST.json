@@ -1,0 +1,21 @@
+{
+  "module": "maze",
+  "source_commit": "71c93f0178003eb557290a63519bc8507538eb5b",
+  "source_files": [
+    "src/maze.c",
+    "include/fbs/maze.h",
+    "tests/test_maze.c",
+    "tests/fixtures/maze/backtracker-17x11-5eed.bin",
+    "tests/fixtures/maze/division-17x11-5eed.bin",
+    "tests/fixtures/maze/eller-17x11-5eed.bin",
+    "tests/fixtures/maze/eller-cycle.txt",
+    "tests/fixtures/maze/growing_tree-17x11-5eed.bin",
+    "tests/fixtures/maze/hunt_and_kill-17x11-5eed.bin",
+    "tests/fixtures/maze/kruskal-17x11-5eed.bin",
+    "tests/fixtures/maze/prim-17x11-5eed.bin",
+    "tests/fixtures/maze/rng-vectors.txt",
+    "tests/fixtures/maze/sidewinder-17x11-5eed.bin",
+    "third_party/lowkeyme/LICENSE-UE5-MazeGenerator-Plugin"
+  ],
+  "history": "fresh initial commit, later squashed snapshots"
+}
