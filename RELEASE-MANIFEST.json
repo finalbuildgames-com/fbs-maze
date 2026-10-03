@@ -1,6 +1,6 @@
 {
   "module": "maze",
-  "source_commit": "71c93f0178003eb557290a63519bc8507538eb5b",
+  "source_commit": "cd0f7ae445d7ccad81b9d6b601d088b66ae6d061",
   "source_files": [
     "src/maze.c",
     "include/fbs/maze.h",
@@ -15,7 +15,8 @@
     "tests/fixtures/maze/prim-17x11-5eed.bin",
     "tests/fixtures/maze/rng-vectors.txt",
     "tests/fixtures/maze/sidewinder-17x11-5eed.bin",
-    "third_party/lowkeyme/LICENSE-UE5-MazeGenerator-Plugin"
+    "third_party/lowkeyme/LICENSE-UE5-MazeGenerator-Plugin",
+    "tools/release/readmes/maze.md"
   ],
   "history": "fresh initial commit, later squashed snapshots"
 }
