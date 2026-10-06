@@ -8,7 +8,7 @@ You create a maze object once with a maximum size, then call `fbs_maze_generate`
 
 - Eight algorithms (`fbs_maze_algorithm`): recursive backtracker, Kruskal, Prim, Eller, sidewinder, hunt-and-kill, recursive division and growing tree. Backtracker and Prim are the growing tree at `newest_percent` 100 and 0.
 - Tuning: `east_bias_percent` for sidewinder, `newest_percent` for growing tree, and `braid_percent` for any algorithm, which opens a wall at that share of dead ends to create loops.
-- Entrances and exits: `fbs_maze_open_border` and `fbs_maze_close_border` on border cells. `fbs_maze_longest_path` finds the two cells farthest apart, which is a good default for start and goal.
+- Entrances and exits: `fbs_maze_open_border` and `fbs_maze_close_border` on border cells. `fbs_maze_longest_path` uses two BFS passes to select start/goal cells: the exact diameter on a tree and a lower-bound estimate when loops are present.
 - Queries: `fbs_maze_solve` writes the shortest path as cell indices, `fbs_maze_distances` fills a BFS distance field, and `fbs_maze_passage_count`, `fbs_maze_dead_end_count`, `fbs_maze_is_connected` and `fbs_maze_is_perfect` report structure.
 - `fbs_maze_set_passage` edits single interior walls (both sides at once) for level tools.
 - `fbs_maze_render` produces a `(2w+1) x (2h+1)` byte grid (1 = floor, 0 = wall) with a solid outer wall that border openings punch through. This is the grid a tile or mesh builder consumes.
@@ -85,12 +85,16 @@ Build it by adding `add_executable(maze_demo main.c)` and `target_link_libraries
 
 ## Build and test
 
+Run from this repository's root. In addition to CMake and the compiler named
+below, install the build tool selected by your generator (for example Make or
+Ninja).
+
 Requires a C99 compiler and CMake 3.16 or newer. The library uses only the standard C library (`malloc`/`free` for the default allocator, `memset`/`memcpy`); it has no floating point and no vendored code. On non-MSVC toolchains the generated CMake also links `libm`.
 
 ```sh
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
-cmake --build build --parallel 2
-ctest --test-dir build --output-on-failure --no-tests=error
+cmake --build build --parallel 1
+(cd build && ctest --output-on-failure)
 ```
 
 CTest runs two tests. `maze` runs `tests/test_maze.c` against the golden files in `tests/fixtures/maze/`. `maze_example` runs `examples/basic.c` (built as `fbs_maze_example`), which creates a maze and prints the API version. Options: `FBS_BUILD_TESTS` and `FBS_BUILD_EXAMPLES`, both ON by default.
@@ -120,7 +124,27 @@ FetchContent_MakeAvailable(fbs_maze)
 target_link_libraries(your_game PRIVATE fbs::maze)
 ```
 
-`cmake --install` copies the library, header and license files but no CMake package config file, so `find_package` is not supported. This repository ships the C library only; no engine bindings or adapters are included.
+This repository ships the C library only; no engine bindings or adapters are included.
+
+## Build modes and installation
+
+`BUILD_SHARED_LIBS=ON` builds a shared library; the default is static.
+`FBS_BUILD_TESTS` and `BUILD_TESTING` together enable the core test.
+`FBS_BUILD_EXAMPLES` controls `fbs_maze_example`; its CTest entry also requires
+`BUILD_TESTING`. For a library-only build, set `FBS_BUILD_TESTS=OFF` and
+`FBS_BUILD_EXAMPLES=OFF`.
+
+```sh
+cmake --install build --prefix "$PWD/install"
+```
+
+Installation supplies [the public header](include/fbs/maze.h), the library,
+license notices and `FinalBuildMazeTargets.cmake` under
+`${CMAKE_INSTALL_LIBDIR}/cmake/FinalBuildMaze`. It supplies no package config or
+version config, so `find_package(FinalBuildMaze)` is unavailable. A consumer may
+include the installed targets file explicitly and link `fbs::maze`, or use
+the source integration above. The [minimal program](examples/basic.c) and
+[core tests](tests/test_maze.c) show the implemented entry points.
 
 ## Design notes
 
